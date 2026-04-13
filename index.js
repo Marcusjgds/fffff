@@ -21,6 +21,7 @@ const TIMEOUT_SECONDS = 120;
 const ROLE_IDS = {
   dirmed:  process.env.ROLE_DIRMED  || '1493253219252441209',
   dirsci:  process.env.ROLE_DIRSCI  || '1493253219252441209',
+  dirint:  process.env.ROLE_DIRINT  || '1493253219252441209',
   // Ajoute tes autres rôles ici :
   // poste3: process.env.ROLE_POSTE3 || 'ID_DU_ROLE',
 };
@@ -29,12 +30,12 @@ const ROLE_IDS = {
 // ⚠️ Les clés ne doivent PAS contenir de _ (underscore) ni de .
 const RECRUITMENTS = {
   dirmed: {
-    label: '🩺 Directeur Médical',
+    label: 'Directeur Médical',
     description: 'Nous recrutons !',
     color: 0x5865F2,
     questions: [
       'Quelles sont vos motivations ?',
-      'Votre pseudo Roblox + ID Roblox ?',
+      'Votre pseudo Roblox + ID Roblox',
       'Pourquoi toi et pas un autre pour devenir Directeur Médical ?',
       'Un hôpital fait face à une augmentation brutale de cas de Sepsis. Quelle est la priorité absolue ?',
       'Un patient en détresse respiratoire aiguë nécessite une ventilation. Quelle stratégie est recommandée ?',
@@ -49,12 +50,12 @@ const RECRUITMENTS = {
   },
 
   dirsci: {
-    label: '🔬 Directeur Scientifique',
+    label: 'Directeur Scientifique',
     description: 'Nous recrutons !',
     color: 0x57F287,
     questions: [
       'Quelles sont vos motivations ?',
-      'Votre pseudo Roblox + ID Roblox ?',
+      'Votre pseudo Roblox + ID Roblox',
       'Quelle est la caractéristique essentielle d\'une hypothèse scientifique valide ?',
       'Que signifie une p-value < 0,05 ?',
       'Quel est le rôle principal de l\'ADN ?',
@@ -67,6 +68,23 @@ const RECRUITMENTS = {
       'Quel est le niveau de preuve le plus élevé ?',
       'Quel est le plus grand risque en recherche ?',
       'Pourquoi toi et pas un autre pour devenir Directeur Scientifique ?',
+    ],
+  },
+
+  dirint: {
+    label: 'Directeur d\'Installation',
+    description: 'Nous recrutons !',
+    color: 0x57F287,
+    questions: [
+      'Quelles sont vos motivations ?',
+      'Votre pseudo Roblox + ID Roblox',
+      'Explique ce que représente pour toi le rôle de Directeur d’Installation SCP.',
+      'Quelles seraient tes 3 priorités absolues en arrivant sur un site SCP ?',
+      'Une brèche de confinement se produit avec plusieurs SCP en liberté. 👉 Décris précisément chaque étape de ta gestion de crise.',
+      'Comment gères-tu un SCP de classe Keter extrêmement instable ?',
+      'Jusqu’où es-tu prêt à aller dans les tests sur les SCP ?',
+      'Toutes les communications sont coupées, le site est en chaos. 👉 Comment reprends-tu le contrôle ?',
+      'Pourquoi toi et pas un autre pour devenir Directeur d’Installation SCP ?',
     ],
   },
 
