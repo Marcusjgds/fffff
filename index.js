@@ -31,7 +31,7 @@ const ROLE_IDS = {
 const RECRUITMENTS = {
   dirmed: {
     label: 'Directeur Médical',
-    description: '',
+    description: 'Département Médical',
     color: 0x5865F2,
     questions: [
       'Quelles sont vos motivations ?',
@@ -51,7 +51,7 @@ const RECRUITMENTS = {
 
   dirsci: {
     label: 'Directeur Scientifique',
-    description: '',
+    description: 'Département Scientifique',
     color: 0x57F287,
     questions: [
       'Quelles sont vos motivations ?',
@@ -73,7 +73,7 @@ const RECRUITMENTS = {
 
   dirint: {
     label: 'Directeur d\'Installation',
-    description: '',
+    description: 'Département Administratif',
     color: 0x57F287,
     questions: [
       'Quelles sont vos motivations ?',
