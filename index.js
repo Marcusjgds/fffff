@@ -13,7 +13,7 @@ const client = new Client({
 });
 
 // ─── CONFIG ────────────────────────────────────────────────────────────────
-const RESULTS_CHANNEL_ID = process.env.RESULTS_CHANNEL_ID || '1493214612345192508';
+const RESULTS_CHANNEL_ID = process.env.RESULTS_CHANNEL_ID || '1493246772552667207';
 const TIMEOUT_SECONDS = 120;
 
 // ─── RÔLES PAR RECRUTEMENT ─────────────────────────────────────────────────
