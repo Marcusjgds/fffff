@@ -17,17 +17,13 @@ const RESULTS_CHANNEL_ID = process.env.RESULTS_CHANNEL_ID || '149324677255266720
 const TIMEOUT_SECONDS = 120;
 
 // ─── RÔLES PAR RECRUTEMENT ─────────────────────────────────────────────────
-// Clé = même nom court que dans RECRUITMENTS ci-dessous
 const ROLE_IDS = {
   dirmed:  process.env.ROLE_DIRMED  || '1493253219252441209',
   dirsci:  process.env.ROLE_DIRSCI  || '1493253219252441209',
   dirint:  process.env.ROLE_DIRINT  || '1493253219252441209',
-  // Ajoute tes autres rôles ici :
-  // poste3: process.env.ROLE_POSTE3 || 'ID_DU_ROLE',
 };
 
 // ─── RECRUTEMENTS ──────────────────────────────────────────────────────────
-// ⚠️ Les clés ne doivent PAS contenir de _ (underscore) ni de .
 const RECRUITMENTS = {
   dirmed: {
     label: 'Directeur Médical',
@@ -74,30 +70,19 @@ const RECRUITMENTS = {
   dirint: {
     label: 'Directeur d\'Installation',
     description: 'Département Administratif',
-    color: 0x57F287,
+    color: 0xFEE75C,
     questions: [
       'Quelles sont vos motivations ?',
       'Votre pseudo Roblox + ID Roblox',
-      'Explique ce que représente pour toi le rôle de Directeur d’Installation SCP.',
+      'Explique ce que représente pour toi le rôle de Directeur d\'Installation SCP.',
       'Quelles seraient tes 3 priorités absolues en arrivant sur un site SCP ?',
-      'Une brèche de confinement se produit avec plusieurs SCP en liberté. 👉 Décris précisément chaque étape de ta gestion de crise.',
+      'Une brèche de confinement se produit avec plusieurs SCP en liberté. Décris précisément chaque étape de ta gestion de crise.',
       'Comment gères-tu un SCP de classe Keter extrêmement instable ?',
-      'Jusqu’où es-tu prêt à aller dans les tests sur les SCP ?',
-      'Toutes les communications sont coupées, le site est en chaos. 👉 Comment reprends-tu le contrôle ?',
-      'Pourquoi toi et pas un autre pour devenir Directeur d’Installation SCP ?',
+      'Jusqu\'où es-tu prêt à aller dans les tests sur les SCP ?',
+      'Toutes les communications sont coupées, le site est en chaos. Comment reprends-tu le contrôle ?',
+      'Pourquoi toi et pas un autre pour devenir Directeur d\'Installation SCP ?',
     ],
   },
-
-  // ── Pour ajouter un poste, copie ce bloc et remplis-le ──
-  // autreposte: {
-  //   label: '🎯 Nom du poste',
-  //   description: 'Description courte',
-  //   color: 0xFEE75C,
-  //   questions: [
-  //     'Question 1 ?',
-  //     'Question 2 ?',
-  //   ],
-  // },
 };
 
 // ─── SESSIONS ACTIVES ──────────────────────────────────────────────────────
@@ -179,15 +164,37 @@ client.on('interactionCreate', async (interaction) => {
       memberId: interaction.user.id,
       answers: [],
       currentQuestion: 0,
+      started: false, // ← nouveau flag
     });
 
     try {
       const dmChannel = await interaction.user.createDM();
-      await startQuestion(dmChannel, interaction.user.id);
+      await sendWelcomeMessage(dmChannel, interaction.user.id);
     } catch {
       activeSessions.delete(interaction.user.id);
       await interaction.followUp({ content: '❌ Je ne peux pas t\'envoyer de message privé. Active tes DMs et réessaie.', ephemeral: true });
     }
+  }
+
+  // ── Bouton "Commencer le questionnaire" ──
+  if (interaction.isButton() && interaction.customId.startsWith('start.')) {
+    const userId = interaction.customId.split('.')[1];
+    const session = activeSessions.get(userId);
+
+    // Vérifier que c'est bien l'auteur qui clique
+    if (interaction.user.id !== userId) {
+      return interaction.reply({ content: '❌ Ce bouton ne t\'appartient pas.', ephemeral: true });
+    }
+    if (!session) {
+      return interaction.reply({ content: '❌ Session introuvable. Recommence depuis le serveur.', ephemeral: true });
+    }
+    if (session.started) {
+      return interaction.reply({ content: '⚠️ Le questionnaire a déjà commencé !', ephemeral: true });
+    }
+
+    session.started = true;
+    await interaction.update({ content: '▶️ **Questionnaire lancé ! Bonne chance !**', components: [] });
+    await startQuestion(interaction.channel, userId);
   }
 
   // ── Bouton "Envoyer la candidature" ──
@@ -207,7 +214,6 @@ client.on('interactionCreate', async (interaction) => {
 
   // ── Bouton "Accepter" ou "Refuser" ──
   if (interaction.isButton() && (interaction.customId.startsWith('accept.') || interaction.customId.startsWith('refuse.'))) {
-    // Format des customId : accept.USERID.RECRUITMENTKEY
     const parts = interaction.customId.split('.');
     const action = parts[0];
     const userId = parts[1];
@@ -231,14 +237,12 @@ client.on('interactionCreate', async (interaction) => {
       }
     }
 
-    // Mettre à jour l'embed dans le salon résultats
     const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
       .setColor(color)
       .setFooter({ text: `${emoji} ${label} par ${interaction.user.tag}` });
 
     await interaction.update({ embeds: [updatedEmbed], components: [] });
 
-    // Notifier le candidat en DM
     try {
       const user = await client.users.fetch(userId);
       const dmEmbed = new EmbedBuilder()
@@ -263,7 +267,7 @@ client.on('messageCreate', async (message) => {
   if (message.author.bot || message.guild) return;
 
   const session = activeSessions.get(message.author.id);
-  if (!session) return;
+  if (!session || !session.started) return;
 
   const recruitment = RECRUITMENTS[session.recruitmentKey];
   session.answers.push(message.content);
@@ -277,6 +281,34 @@ client.on('messageCreate', async (message) => {
 });
 
 // ─── FONCTIONS ─────────────────────────────────────────────────────────────
+
+async function sendWelcomeMessage(dmChannel, userId) {
+  const session = activeSessions.get(userId);
+  const recruitment = RECRUITMENTS[session.recruitmentKey];
+  const total = recruitment.questions.length;
+
+  const embed = new EmbedBuilder()
+    .setTitle(`📋 Candidature — ${recruitment.label}`)
+    .setDescription(
+      `Bienvenue dans le questionnaire de recrutement !\n\n` +
+      `📌 **Poste :** ${recruitment.label}\n` +
+      `❓ **Nombre de questions :** ${total}\n` +
+      `⏱️ **Temps par question :** ${TIMEOUT_SECONDS} secondes\n\n` +
+      `Quand tu es prêt(e), clique sur le bouton ci-dessous pour commencer.\n` +
+      `⚠️ Le chronomètre démarre dès la première question !`
+    )
+    .setColor(recruitment.color)
+    .setTimestamp();
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`start.${userId}`)
+      .setLabel('▶️ Commencer le questionnaire')
+      .setStyle(ButtonStyle.Success)
+  );
+
+  await dmChannel.send({ embeds: [embed], components: [row] });
+}
 
 async function startQuestion(dmChannel, userId) {
   const session = activeSessions.get(userId);
@@ -293,7 +325,7 @@ async function startQuestion(dmChannel, userId) {
 
   await dmChannel.send({ embeds: [embed] });
 
-  // Countdown affiché en live (mise à jour toutes les 10s)
+  // Countdown live (mise à jour toutes les 10s)
   const countdownMsg = await dmChannel.send(`⏳ **${TIMEOUT_SECONDS}s** restantes...`);
   let remaining = TIMEOUT_SECONDS - 10;
 
@@ -303,7 +335,6 @@ async function startQuestion(dmChannel, userId) {
     remaining -= 10;
   }, 10000);
 
-  // Collecter la prochaine réponse
   const collector = dmChannel.createMessageCollector({
     filter: (m) => m.author.id === userId,
     max: 1,
