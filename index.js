@@ -16,6 +16,38 @@ const client = new Client({
 const RESULTS_CHANNEL_ID = process.env.RESULTS_CHANNEL_ID || '1493246772552667207';
 const TIMEOUT_SECONDS = 120;
 
+// ─── CATÉGORIES ────────────────────────────────────────────────────────────
+// Chaque catégorie a un label, une emoji, une couleur et une liste de postes
+// Les postes font référence aux clés de RECRUITMENTS ci-dessous
+const CATEGORIES = {
+  medical: {
+    label: 'Département Médical',
+    emoji: '🏥',
+    color: 0x5865F2,
+    postes: ['dirmed'],
+    // Ajoute d'autres postes ici : postes: ['dirmed', 'medchef', 'infirmier'],
+  },
+  scientifique: {
+    label: 'Département Scientifique',
+    emoji: '🔬',
+    color: 0x57F287,
+    postes: ['dirsci'],
+  },
+  administratif: {
+    label: 'Département Administratif',
+    emoji: '🏢',
+    color: 0xFEE75C,
+    postes: ['dirint'],
+  },
+  // ── Pour ajouter une catégorie, copie ce bloc ──
+  // securite: {
+  //   label: 'Département Sécurité',
+  //   emoji: '🔒',
+  //   color: 0xED4245,
+  //   postes: ['chefsec'],
+  // },
+};
+
 // ─── RÔLES PAR RECRUTEMENT ─────────────────────────────────────────────────
 const ROLE_IDS = {
   dirmed:  process.env.ROLE_DIRMED  || '1493253219252441209',
@@ -24,6 +56,7 @@ const ROLE_IDS = {
 };
 
 // ─── RECRUTEMENTS ──────────────────────────────────────────────────────────
+// ⚠️ Clés sans underscore ni point
 const RECRUITMENTS = {
   dirmed: {
     label: 'Directeur Médical',
@@ -83,6 +116,14 @@ const RECRUITMENTS = {
       'Pourquoi toi et pas un autre pour devenir Directeur d\'Installation SCP ?',
     ],
   },
+
+  // ── Pour ajouter un poste, copie ce bloc ──
+  // nouveauposte: {
+  //   label: 'Nom du poste',
+  //   description: 'Département concerné',
+  //   color: 0xED4245,
+  //   questions: ['Question 1 ?', 'Question 2 ?'],
+  // },
 };
 
 // ─── SESSIONS ACTIVES ──────────────────────────────────────────────────────
@@ -98,12 +139,12 @@ client.on('messageCreate', async (message) => {
   if (message.content === '!setup-recrutement' && message.member?.permissions.has('Administrator')) {
     const embed = new EmbedBuilder()
       .setTitle('📋 Recrutements ouverts')
-      .setDescription('Clique sur le bouton ci-dessous pour postuler à un poste disponible sur ce serveur.')
+      .setDescription('Clique sur **Postuler** pour choisir un département et un poste disponible.')
       .setColor(0x5865F2)
       .addFields(
-        Object.entries(RECRUITMENTS).map(([, r]) => ({
-          name: r.label,
-          value: r.description,
+        Object.values(CATEGORIES).map(cat => ({
+          name: `${cat.emoji} ${cat.label}`,
+          value: cat.postes.map(p => `• ${RECRUITMENTS[p].label}`).join('\n'),
           inline: true,
         }))
       )
@@ -124,37 +165,66 @@ client.on('messageCreate', async (message) => {
 // ─── INTERACTIONS ──────────────────────────────────────────────────────────
 client.on('interactionCreate', async (interaction) => {
 
-  // ── Bouton "Postuler" ──
+  // ── Bouton "Postuler" → affiche les boutons de catégorie ──
   if (interaction.isButton() && interaction.customId === 'open_recruitment') {
     if (activeSessions.has(interaction.user.id)) {
       return interaction.reply({ content: '⚠️ Tu as déjà une candidature en cours dans tes messages privés !', ephemeral: true });
     }
 
-    const select = new StringSelectMenuBuilder()
-      .setCustomId('choose_recruitment')
-      .setPlaceholder('Choisis un poste...')
-      .addOptions(
-        Object.entries(RECRUITMENTS).map(([key, r]) => ({
-          label: r.label,
-          description: r.description,
-          value: key,
-        }))
-      );
+    // Crée un bouton par catégorie (max 5 par ligne)
+    const buttons = Object.entries(CATEGORIES).map(([key, cat]) =>
+      new ButtonBuilder()
+        .setCustomId(`cat.${key}`)
+        .setLabel(`${cat.emoji} ${cat.label}`)
+        .setStyle(ButtonStyle.Secondary)
+    );
 
-    const row = new ActionRowBuilder().addComponents(select);
+    // Discord max 5 boutons par ActionRow
+    const rows = [];
+    for (let i = 0; i < buttons.length; i += 5) {
+      rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+    }
+
     await interaction.reply({
-      content: '👇 Quel poste t\'intéresse ?',
-      components: [row],
+      content: '👇 Choisis un département :',
+      components: rows,
       ephemeral: true,
     });
   }
 
-  // ── Select menu : choix du recrutement ──
-  if (interaction.isStringSelectMenu() && interaction.customId === 'choose_recruitment') {
+  // ── Bouton catégorie → affiche le menu des postes ──
+  if (interaction.isButton() && interaction.customId.startsWith('cat.')) {
+    const catKey = interaction.customId.split('.')[1];
+    const category = CATEGORIES[catKey];
+    if (!category) return;
+
+    const select = new StringSelectMenuBuilder()
+      .setCustomId(`choose.${catKey}`)
+      .setPlaceholder(`Choisis un poste dans ${category.label}...`)
+      .addOptions(
+        category.postes.map(posteKey => ({
+          label: RECRUITMENTS[posteKey].label,
+          description: RECRUITMENTS[posteKey].description,
+          value: posteKey,
+        }))
+      );
+
+    const row = new ActionRowBuilder().addComponents(select);
+    await interaction.update({
+      content: `${category.emoji} **${category.label}** — Choisis un poste :`,
+      components: [row],
+    });
+  }
+
+  // ── Select menu : choix du poste ──
+  if (interaction.isStringSelectMenu() && interaction.customId.startsWith('choose.')) {
     const key = interaction.values[0];
     const recruitment = RECRUITMENTS[key];
 
-    await interaction.update({ content: `✅ Tu as choisi **${recruitment.label}**. Regarde tes messages privés !`, components: [] });
+    await interaction.update({
+      content: `✅ Tu as choisi **${recruitment.label}**. Regarde tes messages privés !`,
+      components: [],
+    });
 
     activeSessions.set(interaction.user.id, {
       recruitmentKey: key,
@@ -164,7 +234,7 @@ client.on('interactionCreate', async (interaction) => {
       memberId: interaction.user.id,
       answers: [],
       currentQuestion: 0,
-      started: false, // ← nouveau flag
+      started: false,
     });
 
     try {
@@ -181,7 +251,6 @@ client.on('interactionCreate', async (interaction) => {
     const userId = interaction.customId.split('.')[1];
     const session = activeSessions.get(userId);
 
-    // Vérifier que c'est bien l'auteur qui clique
     if (interaction.user.id !== userId) {
       return interaction.reply({ content: '❌ Ce bouton ne t\'appartient pas.', ephemeral: true });
     }
@@ -225,7 +294,6 @@ client.on('interactionCreate', async (interaction) => {
     const emoji = isAccepted ? '✅' : '❌';
     const label = isAccepted ? 'ACCEPTÉ(E)' : 'REFUSÉ(E)';
 
-    // ── Ajouter le rôle si accepté ──
     if (isAccepted && member && recruitmentKey) {
       const roleId = ROLE_IDS[recruitmentKey];
       if (roleId) {
@@ -233,7 +301,7 @@ client.on('interactionCreate', async (interaction) => {
           console.error(`❌ Impossible d'ajouter le rôle ${roleId} :`, err.message);
         });
       } else {
-        console.warn(`⚠️ Aucun rôle configuré pour le poste : ${recruitmentKey}`);
+        console.warn(`⚠️ Aucun rôle configuré pour : ${recruitmentKey}`);
       }
     }
 
@@ -325,7 +393,6 @@ async function startQuestion(dmChannel, userId) {
 
   await dmChannel.send({ embeds: [embed] });
 
-  // Countdown live (mise à jour toutes les 10s)
   const countdownMsg = await dmChannel.send(`⏳ **${TIMEOUT_SECONDS}s** restantes...`);
   let remaining = TIMEOUT_SECONDS - 10;
 
